@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "MockBidder Adapter Params",
+  "description": "A schema which validates params accepted by the MockBidder adapter",
+  "type": "object",
+  "properties": {
+    "sid": {
+      "type": "string",
+      "description": "Slot Id"
+    },
+    "name": {
+      "type": "string",
+      "description": "Partner name"
+    }
+  },
+  "required": ["sid", "name"]
+}

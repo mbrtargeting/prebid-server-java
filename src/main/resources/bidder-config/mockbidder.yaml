@@ -1,0 +1,21 @@
+adapters:
+  mockbidder:
+    endpoint: http://mocks2.service.ssp.consul:3001/rtb
+    meta-info:
+      maintainer-email: help@cz.stroeer-labs.com
+      app-media-types:
+        - banner
+        - video
+      site-media-types:
+        - banner
+        - video
+      supported-vendors:
+      vendor-id: 136
+    usersync:
+      cookie-family-name: mockbidder
+      iframe:
+        url: https://js.lsd.test/pbsync.html?gdpr={{gdpr}}&gdpr_consent={{gdpr_consent}}&redirect={{redirect_url}}
+        support-cors: false
+      redirect:
+        url: https://js.lsd.test/uu?gdpr={{gdpr}}&gdpr_consent={{gdpr_consent}}&cburl={{redirect_url}}
+        support-cors: false
