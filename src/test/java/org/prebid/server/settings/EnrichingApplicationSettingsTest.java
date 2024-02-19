@@ -120,8 +120,9 @@ public class EnrichingApplicationSettingsTest extends VertxTest {
                         .build())
                 .privacy(AccountPrivacyConfig.of(
                         AccountGdprConfig.builder()
-                                .enabledForRequestType(EnabledForRequestType.of(true, null, null, null))
+                                .enabledForRequestType(EnabledForRequestType.of(true, null, null, null, null))
                                 .build(),
+                        null,
                         null,
                         null,
                         null))
@@ -140,8 +141,9 @@ public class EnrichingApplicationSettingsTest extends VertxTest {
                 .privacy(AccountPrivacyConfig.of(
                         AccountGdprConfig.builder()
                                 .enabled(true)
-                                .enabledForRequestType(EnabledForRequestType.of(true, null, null, null))
+                                .enabledForRequestType(EnabledForRequestType.of(true, null, null, null, null))
                                 .build(),
+                        null,
                         null,
                         null,
                         null))
@@ -232,6 +234,7 @@ public class EnrichingApplicationSettingsTest extends VertxTest {
                 .privacy(AccountPrivacyConfig.of(
                         null,
                         null,
+                        null,
                         Map.of(
                                 Activity.SYNC_USER, AccountActivityConfiguration.of(null, null),
                                 Activity.CALL_BIDDER, AccountActivityConfiguration.of(null, asList(
@@ -257,6 +260,7 @@ public class EnrichingApplicationSettingsTest extends VertxTest {
         // then
         assertThat(accountFuture).succeededWith(Account.builder()
                 .privacy(AccountPrivacyConfig.of(
+                        null,
                         null,
                         null,
                         Map.of(

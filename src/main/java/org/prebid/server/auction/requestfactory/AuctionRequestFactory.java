@@ -201,7 +201,8 @@ public class AuctionRequestFactory {
                 .ext(ExtRegs.of(
                         extRegs != null ? extRegs.getGdpr() : null,
                         extRegs != null ? extRegs.getUsPrivacy() : null,
-                        gpc))
+                        gpc,
+                        extRegs != null ? extRegs.getDsa() : null))
                 .build();
     }
 
@@ -215,7 +216,10 @@ public class AuctionRequestFactory {
 
         return storedRequestProcessor.processAuctionRequest(account.getId(), auctionContext.getBidRequest())
                 .compose(auctionStoredResult -> updateBidRequest(auctionStoredResult, auctionContext))
-                .compose(bidRequest -> ortb2RequestFactory.validateRequest(bidRequest, debugWarnings))
+                .compose(bidRequest -> ortb2RequestFactory.validateRequest(
+                        bidRequest,
+                        auctionContext.getHttpRequest(),
+                        debugWarnings))
                 .map(interstitialProcessor::process);
     }
 
@@ -232,6 +236,12 @@ public class AuctionRequestFactory {
     }
 
     private static MetricName requestTypeMetric(BidRequest bidRequest) {
-        return bidRequest.getApp() != null ? MetricName.openrtb2app : MetricName.openrtb2web;
+        if (bidRequest.getApp() != null) {
+            return MetricName.openrtb2app;
+        } else if (bidRequest.getDooh() != null) {
+            return MetricName.openrtb2dooh;
+        } else {
+            return MetricName.openrtb2web;
+        }
     }
 }
