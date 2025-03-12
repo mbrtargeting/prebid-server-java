@@ -46,7 +46,7 @@ You have two options for running modular tests:
 1. Use `mvn verify -DdockerfileName=Dockerfile-modules` to include all previous steps (including Java tests and functional tests) because Groovy runs in the `failsafe:integration-test` phase.
 2. For modular tests only, use a more granular command:
 
-`mvn -B verify -DskipUnitTests=true -DskipFunctionalTests=true -DdockerfileName=Dockerfile-modules`
+`mvn -B verify -DskipUnitTests=true -DskipFunctionalTests=true -DskipModuleFunctionalTests=false -DdockerfileName=Dockerfile-modules`
 
 ## Developing
 
@@ -70,7 +70,7 @@ Functional tests need to have name template **.\*Spec.groovy**
 **Properties:**
 
 `launchContainers` - responsible for starting the MockServer and the MySQLContainer container. Default value is false to not launch containers for unit tests.
-`tests.max-container-count` - maximum number of simultaneously running PBS containers. Default value is 2.
+`tests.max-container-count` - maximum number of simultaneously running PBS containers. Default value is 5.
 `skipFunctionalTests` - allow to skip funtional tests. Default value is false.
 `skipUnitTests` - allow to skip unit tests. Default value is false.
 
@@ -131,7 +131,16 @@ Container for mocking different calls from PBS: prebid cache, bidders, currency 
 
 Container for Mysql database.
 
-- Use `org/prebid/server/functional/db_schema.sql` script for scheme.
+- Use `org/prebid/server/functional/db_mysql_schema.sql` script for scheme.
+- DataBase: `prebid`
+- Username: `prebid`
+- Password: `prebid`
+
+#### PostgreSQLContainer
+
+Container for PostgreSQL database.
+
+- Use `org/prebid/server/functional/db_psql_schema.sql` script for scheme.
 - DataBase: `prebid`
 - Username: `prebid`
 - Password: `prebid`

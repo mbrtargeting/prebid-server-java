@@ -11,20 +11,22 @@ import com.iab.openrtb.request.Native;
 import com.iab.openrtb.request.Video;
 import org.assertj.core.api.Condition;
 import org.assertj.core.api.SoftAssertions;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.prebid.server.activity.Activity;
+import org.prebid.server.activity.ComponentType;
+import org.prebid.server.activity.infrastructure.ActivityInfrastructure;
 import org.prebid.server.hooks.execution.model.ExecutionAction;
 import org.prebid.server.hooks.execution.model.ExecutionStatus;
 import org.prebid.server.hooks.execution.model.Stage;
 import org.prebid.server.metric.model.AccountMetricsVerbosityLevel;
 import org.prebid.server.settings.model.Account;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -36,25 +38,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mock.Strictness.LENIENT;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+@ExtendWith(MockitoExtension.class)
 public class MetricsTest {
 
     private static final String RUBICON = "rubicon";
     private static final String CONVERSANT = "conversant";
     private static final String ACCOUNT_ID = "accountId";
+    private static final String ACCOUNT_ID_1 = "accountId1";
     private static final String ANALYTIC_CODE = "analyticCode";
 
-    @Rule
-    public final MockitoRule mockitoRule = MockitoJUnit.rule();
-
     private MetricRegistry metricRegistry;
-    @Mock
+
+    @Mock(strictness = LENIENT)
     private AccountMetricsVerbosityResolver accountMetricsVerbosityResolver;
+    @Mock
+    private ActivityInfrastructure activityInfrastructure;
 
     private Metrics metrics;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         metricRegistry = new MetricRegistry();
         given(accountMetricsVerbosityResolver.forAccount(any())).willReturn(AccountMetricsVerbosityLevel.detailed);
@@ -327,6 +333,16 @@ public class MetricsTest {
     }
 
     @Test
+    public void updateDebugRequestsMetricsShouldIncrementMetrics() {
+        // when
+        metrics.updateDebugRequestMetrics(false);
+        metrics.updateDebugRequestMetrics(true);
+
+        // then
+        assertThat(metricRegistry.counter("debug_requests").getCount()).isOne();
+    }
+
+    @Test
     public void updateImpTypesMetricsByCountPerMediaTypeShouldIncrementMetrics() {
         // given
         final Map<String, Long> mediaTypeToCount = new HashMap<>();
@@ -388,16 +404,16 @@ public class MetricsTest {
     public void updateRequestTypeMetricShouldIncrementMetric() {
         // when
         metrics.updateRequestTypeMetric(MetricName.openrtb2web, MetricName.ok);
-        metrics.updateRequestTypeMetric(MetricName.openrtb2web, MetricName.blacklisted_account);
-        metrics.updateRequestTypeMetric(MetricName.openrtb2app, MetricName.blacklisted_app);
+        metrics.updateRequestTypeMetric(MetricName.openrtb2web, MetricName.blocklisted_account);
+        metrics.updateRequestTypeMetric(MetricName.openrtb2app, MetricName.blocklisted_app);
         metrics.updateRequestTypeMetric(MetricName.openrtb2app, MetricName.err);
         metrics.updateRequestTypeMetric(MetricName.amp, MetricName.badinput);
         metrics.updateRequestTypeMetric(MetricName.amp, MetricName.networkerr);
 
         // then
         assertThat(metricRegistry.counter("requests.ok.openrtb2-web").getCount()).isOne();
-        assertThat(metricRegistry.counter("requests.blacklisted_account.openrtb2-web").getCount()).isOne();
-        assertThat(metricRegistry.counter("requests.blacklisted_app.openrtb2-app").getCount()).isOne();
+        assertThat(metricRegistry.counter("requests.blocklisted_account.openrtb2-web").getCount()).isOne();
+        assertThat(metricRegistry.counter("requests.blocklisted_app.openrtb2-app").getCount()).isOne();
         assertThat(metricRegistry.counter("requests.err.openrtb2-app").getCount()).isOne();
         assertThat(metricRegistry.counter("requests.badinput.amp").getCount()).isOne();
         assertThat(metricRegistry.counter("requests.networkerr.amp").getCount()).isOne();
@@ -420,6 +436,16 @@ public class MetricsTest {
         // then
         assertThat(metricRegistry.counter("account.accountId.requests").getCount()).isOne();
         assertThat(metricRegistry.counter("account.accountId.requests.type.openrtb2-web").getCount()).isOne();
+    }
+
+    @Test
+    public void updateAccountDebugRequestMetricsShouldIncrementMetrics() {
+        // when
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), false);
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), true);
+
+        // then
+        assertThat(metricRegistry.counter("account.accountId.debug_requests").getCount()).isOne();
     }
 
     @Test
@@ -514,6 +540,28 @@ public class MetricsTest {
     }
 
     @Test
+    public void updateAdapterRequestBuyerUidScrubbedMetricsShouldIncrementMetrics() {
+        // when
+        metrics.updateAdapterRequestBuyerUidScrubbedMetrics(RUBICON, Account.empty(ACCOUNT_ID));
+        metrics.updateAdapterRequestBuyerUidScrubbedMetrics(CONVERSANT, Account.empty(ACCOUNT_ID));
+        metrics.updateAdapterRequestBuyerUidScrubbedMetrics(CONVERSANT, Account.empty(ACCOUNT_ID));
+
+        // then
+        assertThat(metricRegistry.counter("adapter.rubicon.requests.buyeruid_scrubbed")
+                .getCount())
+                .isOne();
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.requests.buyeruid_scrubbed")
+                .getCount())
+                .isOne();
+        assertThat(metricRegistry.counter("adapter.conversant.requests.buyeruid_scrubbed")
+                .getCount())
+                .isEqualTo(2);
+        assertThat(metricRegistry.counter("account.accountId.adapter.conversant.requests.buyeruid_scrubbed")
+                .getCount())
+                .isEqualTo(2);
+    }
+
+    @Test
     public void updateAdapterRequestNobidMetricsShouldIncrementMetrics() {
         // when
         metrics.updateAdapterRequestNobidMetrics(RUBICON, Account.empty(ACCOUNT_ID));
@@ -565,6 +613,37 @@ public class MetricsTest {
         assertThat(metricRegistry.counter("account.accountId.adapter.conversant.bids_received").getCount())
                 .isEqualTo(2);
         assertThat(metricRegistry.counter("adapter.conversant.banner.nurl_bids_received").getCount()).isEqualTo(2);
+    }
+
+    @Test
+    public void updateUnknownBidderMetricsShouldIncrementMetrics() {
+        // when
+        metrics.updateUnknownBidderMetric(Account.empty(ACCOUNT_ID));
+        metrics.updateUnknownBidderMetric(Account.empty(ACCOUNT_ID));
+        metrics.updateUnknownBidderMetric(Account.empty(ACCOUNT_ID_1));
+
+        // then
+        assertThat(metricRegistry.counter("unknown_bidder").getCount()).isEqualTo(3);
+        assertThat(metricRegistry.counter(
+                "account.accountId.requests.unknown_bidder").getCount()).isEqualTo(2);
+        assertThat(metricRegistry.counter(
+                "account.accountId1.requests.unknown_bidder").getCount()).isEqualTo(1);
+    }
+
+    @Test
+    public void updateDisabledBidderMetricsShouldIncrementMetrics() {
+        // when
+        metrics.updateDisabledBidderMetric(Account.empty(ACCOUNT_ID));
+        metrics.updateDisabledBidderMetric(Account.empty(ACCOUNT_ID));
+        metrics.updateDisabledBidderMetric(Account.empty(ACCOUNT_ID_1));
+
+        // then
+        assertThat(metricRegistry.counter(
+                "disabled_bidder").getCount()).isEqualTo(3);
+        assertThat(metricRegistry.counter(
+                "account.accountId.requests.disabled_bidder").getCount()).isEqualTo(2);
+        assertThat(metricRegistry.counter(
+                "account.accountId1.requests.disabled_bidder").getCount()).isEqualTo(1);
     }
 
     @Test
@@ -673,155 +752,107 @@ public class MetricsTest {
     }
 
     @Test
-    public void updateGpRequestMetricShouldIncrementPlannerRequestAndPlannerSuccessfulRequest() {
-        // when
-        metrics.updatePlannerRequestMetric(true);
-
-        // then
-        assertThat(metricRegistry.counter("pg.planner_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("pg.planner_request_successful").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateGpRequestMetricShouldIncrementPlannerRequestAndPlannerFailedRequest() {
-        // when
-        metrics.updatePlannerRequestMetric(false);
-
-        // then
-        assertThat(metricRegistry.counter("pg.planner_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("pg.planner_request_failed").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateGpRequestMetricShouldIncrementUserDetailsSuccessfulRequest() {
-        // when
-        metrics.updateUserDetailsRequestMetric(true);
-
-        // then
-        assertThat(metricRegistry.counter("user_details_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("user_details_request_successful").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateGpRequestMetricShouldIncrementUserDetailsFailedRequest() {
-        // when
-        metrics.updateUserDetailsRequestMetric(false);
-
-        // then
-        assertThat(metricRegistry.counter("user_details_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("user_details_request_failed").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateGpRequestMetricShouldIncrementWinSuccessfulRequest() {
-        // when
-        metrics.updateWinEventRequestMetric(true);
-
-        // then
-        assertThat(metricRegistry.counter("win_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("win_request_successful").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateGpRequestMetricShouldIncrementWinFailedRequest() {
-        // when
-        metrics.updateWinEventRequestMetric(false);
-
-        // then
-        assertThat(metricRegistry.counter("win_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("win_request_failed").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateWinRequestTimeShouldLogTime() {
-        // when
-        metrics.updateWinRequestTime(20L);
-
-        // then
-        assertThat(metricRegistry.timer("win_request_time").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateWinRequestPreparationFailedShouldIncrementMetric() {
-        // when
-        metrics.updateWinRequestPreparationFailed();
-
-        // then
-        assertThat(metricRegistry.counter("win_request_preparation_failed").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateUserDetailsRequestPreparationFailedShouldIncrementMetric() {
-        // when
-        metrics.updateUserDetailsRequestPreparationFailed();
-
-        // then
-        assertThat(metricRegistry.counter("user_details_request_preparation_failed").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateDeliveryRequestMetricShouldIncrementDeliveryRequestAndSuccessfulDeliveryRequest() {
-        // when
-        metrics.updateDeliveryRequestMetric(true);
-
-        // then
-        assertThat(metricRegistry.counter("pg.delivery_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("pg.delivery_request_successful").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateDeliveryRequestMetricShouldIncrementDeliveryRequestAndFailedDeliveryRequest() {
-        // when
-        metrics.updateDeliveryRequestMetric(false);
-
-        // then
-        assertThat(metricRegistry.counter("pg.delivery_requests").getCount()).isEqualTo(1);
-        assertThat(metricRegistry.counter("pg.delivery_request_failed").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateLineItemsNumberMetricShouldIncrementLineItemsNumberForAAcountValue() {
-        // when
-        metrics.updateLineItemsNumberMetric(20L);
-
-        // then
-        assertThat(metricRegistry.counter("pg.planner_lineitems_received").getCount()).isEqualTo(20);
-    }
-
-    @Test
-    public void updatePlannerRequestTimeShouldLogTime() {
-        // when
-        metrics.updatePlannerRequestTime(20L);
-
-        // then
-        assertThat(metricRegistry.timer("pg.planner_request_time").getCount()).isEqualTo(1);
-    }
-
-    @Test
-    public void updateDeliveryRequestTimeShouldLogTime() {
-        // when
-        metrics.updateDeliveryRequestTime(20L);
-
-        // then
-        assertThat(metricRegistry.timer("pg.delivery_request_time").getCount()).isEqualTo(1);
-    }
-
-    @Test
     public void updateAuctionTcfMetricsShouldIncrementMetrics() {
         // when
-        metrics.updateAuctionTcfMetrics(RUBICON, MetricName.openrtb2web, true, true, true, true);
-        metrics.updateAuctionTcfMetrics(CONVERSANT, MetricName.openrtb2web, false, true, true, false);
-        metrics.updateAuctionTcfMetrics(CONVERSANT, MetricName.openrtb2app, true, false, false, true);
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                RUBICON,
+                MetricName.openrtb2web,
+                true, true, true, true, true, false);
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                CONVERSANT,
+                MetricName.openrtb2web,
+                true, false, true, false, true, false);
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                CONVERSANT,
+                MetricName.openrtb2app,
+                false, true, false, true, false, false);
 
         // then
+        assertThat(metricRegistry.counter("adapter.rubicon.openrtb2-web.tcf.userfpd_masked").getCount()).isOne();
         assertThat(metricRegistry.counter("adapter.rubicon.openrtb2-web.tcf.userid_removed").getCount()).isOne();
         assertThat(metricRegistry.counter("adapter.rubicon.openrtb2-web.tcf.geo_masked").getCount()).isOne();
         assertThat(metricRegistry.counter("adapter.rubicon.openrtb2-web.tcf.analytics_blocked").getCount()).isOne();
         assertThat(metricRegistry.counter("adapter.rubicon.openrtb2-web.tcf.request_blocked").getCount()).isOne();
-        assertThat(metricRegistry.counter("adapter.conversant.openrtb2-web.tcf.geo_masked").getCount()).isOne();
-        assertThat(metricRegistry.counter("adapter.conversant.openrtb2-web.tcf.analytics_blocked").getCount()).isOne();
+        assertThat(metricRegistry.counter("adapter.conversant.openrtb2-web.tcf.userfpd_masked").getCount()).isOne();
         assertThat(metricRegistry.counter("adapter.conversant.openrtb2-app.tcf.userid_removed").getCount()).isOne();
-        assertThat(metricRegistry.counter("adapter.conversant.openrtb2-app.tcf.request_blocked").getCount()).isOne();
+        assertThat(metricRegistry.counter("adapter.conversant.openrtb2-web.tcf.geo_masked").getCount()).isOne();
+        assertThat(metricRegistry.counter("adapter.conversant.openrtb2-app.tcf.analytics_blocked").getCount()).isOne();
+        assertThat(metricRegistry.counter("adapter.conversant.openrtb2-web.tcf.request_blocked").getCount()).isOne();
+    }
+
+    @Test
+    public void updateAuctionTcfMetricsShouldUpdateTransitUfpdActivityMetricWhenUserFpdRemoved() {
+        // when
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                RUBICON,
+                MetricName.openrtb2web,
+                true, false, false, false, false, false);
+
+        // then
+        verify(activityInfrastructure).updateActivityMetrics(Activity.TRANSMIT_UFPD, ComponentType.BIDDER, RUBICON);
+        verifyNoMoreInteractions(activityInfrastructure);
+    }
+
+    @Test
+    public void updateAuctionTcfMetricsShouldUpdateTransitGeoActivityMetricWhenGeoMasked() {
+        // when
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                RUBICON,
+                MetricName.openrtb2web,
+                false, false, true, false, false, false);
+
+        // then
+        verify(activityInfrastructure).updateActivityMetrics(Activity.TRANSMIT_GEO, ComponentType.BIDDER, RUBICON);
+        verifyNoMoreInteractions(activityInfrastructure);
+    }
+
+    @Test
+    public void updateAuctionTcfMetricsShouldUpdateTransitEidsActivityMetricWhenGeoMasked() {
+        // when
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                RUBICON,
+                MetricName.openrtb2web,
+                false, true, false, false, false, false);
+
+        // then
+        verify(activityInfrastructure).updateActivityMetrics(Activity.TRANSMIT_EIDS, ComponentType.BIDDER, RUBICON);
+        verifyNoMoreInteractions(activityInfrastructure);
+    }
+
+    @Test
+    public void updateAuctionTcfMetricsShouldUpdateCallBidderActivityMetricWhenRequestIsBlocked() {
+        // when
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                RUBICON,
+                MetricName.openrtb2web,
+                false, false, false, false, true, false);
+
+        // then
+        verify(activityInfrastructure).updateActivityMetrics(Activity.CALL_BIDDER, ComponentType.BIDDER, RUBICON);
+        verifyNoMoreInteractions(activityInfrastructure);
+    }
+
+    @Test
+    public void updateAuctionTcfMetricsShouldUpdateTransmitUfpdEidsAndGeoActivityMetricsWhenLmtIsEnabled() {
+        // when
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                RUBICON,
+                MetricName.openrtb2web,
+                false, false, false, false, false, true);
+
+        // then
+        verify(activityInfrastructure).updateActivityMetrics(Activity.TRANSMIT_EIDS, ComponentType.BIDDER, RUBICON);
+        verify(activityInfrastructure).updateActivityMetrics(Activity.TRANSMIT_GEO, ComponentType.BIDDER, RUBICON);
+        verify(activityInfrastructure).updateActivityMetrics(Activity.TRANSMIT_UFPD, ComponentType.BIDDER, RUBICON);
+        verifyNoMoreInteractions(activityInfrastructure);
     }
 
     @Test
@@ -848,7 +879,7 @@ public class MetricsTest {
     @Test
     public void updatePrivacyCoppaMetricShouldIncrementMetric() {
         // when
-        metrics.updatePrivacyCoppaMetric();
+        metrics.updatePrivacyCoppaMetric(activityInfrastructure, Collections.emptyList());
 
         // then
         assertThat(metricRegistry.counter("privacy.coppa").getCount()).isOne();
@@ -857,7 +888,11 @@ public class MetricsTest {
     @Test
     public void updatePrivacyLmtMetricShouldIncrementMetric() {
         // when
-        metrics.updatePrivacyLmtMetric();
+        metrics.updateAuctionTcfAndLmtMetrics(
+                activityInfrastructure,
+                RUBICON,
+                MetricName.openrtb2web,
+                false, false, false, false, false, true);
 
         // then
         assertThat(metricRegistry.counter("privacy.lmt").getCount()).isOne();
@@ -866,7 +901,7 @@ public class MetricsTest {
     @Test
     public void updatePrivacyCcpaMetricsShouldIncrementMetrics() {
         // when
-        metrics.updatePrivacyCcpaMetrics(true, true);
+        metrics.updatePrivacyCcpaMetrics(activityInfrastructure, true, true, false, Collections.emptyList());
 
         // then
         assertThat(metricRegistry.counter("privacy.usp.specified").getCount()).isOne();
@@ -955,20 +990,29 @@ public class MetricsTest {
         given(accountMetricsVerbosityResolver.forAccount(any())).willReturn(AccountMetricsVerbosityLevel.none);
 
         // when
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), false);
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), true);
         metrics.updateAccountRequestMetrics(Account.empty(ACCOUNT_ID), MetricName.openrtb2web);
         metrics.updateAdapterResponseTime(RUBICON, Account.empty(ACCOUNT_ID), 500);
         metrics.updateAdapterRequestNobidMetrics(RUBICON, Account.empty(ACCOUNT_ID));
         metrics.updateAdapterRequestGotbidsMetrics(RUBICON, Account.empty(ACCOUNT_ID));
         metrics.updateAdapterBidMetrics(RUBICON, Account.empty(ACCOUNT_ID), 1234L, true, "banner");
+        metrics.updateDisabledBidderMetric(Account.empty(ACCOUNT_ID));
+        metrics.updateUnknownBidderMetric(Account.empty(ACCOUNT_ID));
 
         // then
         assertThat(metricRegistry.counter("account.accountId.requests").getCount()).isZero();
+        assertThat(metricRegistry.counter("account.accountId.debug_requests").getCount()).isZero();
         assertThat(metricRegistry.counter("account.accountId.requests.type.openrtb2-web").getCount()).isZero();
-        assertThat(metricRegistry.timer("account.accountId.rubicon.request_time").getCount()).isZero();
-        assertThat(metricRegistry.counter("account.accountId.rubicon.requests.nobid").getCount()).isZero();
-        assertThat(metricRegistry.counter("account.accountId.rubicon.requests.gotbids").getCount()).isZero();
-        assertThat(metricRegistry.histogram("account.accountId.rubicon.prices").getCount()).isZero();
-        assertThat(metricRegistry.counter("account.accountId.rubicon.bids_received").getCount()).isZero();
+        assertThat(metricRegistry.timer("account.accountId.adapter.rubicon.request_time").getCount()).isZero();
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.requests.nobid").getCount()).isZero();
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.requests.gotbids").getCount()).isZero();
+        assertThat(metricRegistry.histogram("account.accountId.adapter.rubicon.prices").getCount()).isZero();
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.bids_received").getCount()).isZero();
+        assertThat(metricRegistry.counter(
+                "account.accountId.adapter.rubicon.requests.unknown_bidder").getCount()).isZero();
+        assertThat(metricRegistry.counter(
+                "account.accountId.adapter.rubicon.requests.disabled_bidder").getCount()).isZero();
     }
 
     @Test
@@ -978,19 +1022,64 @@ public class MetricsTest {
 
         // when
         metrics.updateAccountRequestMetrics(Account.empty(ACCOUNT_ID), MetricName.openrtb2web);
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), false);
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), true);
         metrics.updateAdapterResponseTime(RUBICON, Account.empty(ACCOUNT_ID), 500);
         metrics.updateAdapterRequestNobidMetrics(RUBICON, Account.empty(ACCOUNT_ID));
         metrics.updateAdapterRequestGotbidsMetrics(RUBICON, Account.empty(ACCOUNT_ID));
         metrics.updateAdapterBidMetrics(RUBICON, Account.empty(ACCOUNT_ID), 1234L, true, "banner");
+        metrics.updateDisabledBidderMetric(Account.empty(ACCOUNT_ID));
+        metrics.updateUnknownBidderMetric(Account.empty(ACCOUNT_ID));
 
         // then
         assertThat(metricRegistry.counter("account.accountId.requests").getCount()).isOne();
+        assertThat(metricRegistry.counter("account.accountId.debug_requests").getCount()).isZero();
         assertThat(metricRegistry.counter("account.accountId.requests.type.openrtb2-web").getCount()).isZero();
         assertThat(metricRegistry.timer("account.accountId.rubicon.request_time").getCount()).isZero();
-        assertThat(metricRegistry.counter("account.accountId.rubicon.requests.nobid").getCount()).isZero();
-        assertThat(metricRegistry.counter("account.accountId.rubicon.requests.gotbids").getCount()).isZero();
-        assertThat(metricRegistry.histogram("account.accountId.rubicon.prices").getCount()).isZero();
-        assertThat(metricRegistry.counter("account.accountId.rubicon.bids_received").getCount()).isZero();
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.requests.nobid").getCount()).isZero();
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.requests.gotbids").getCount()).isZero();
+        assertThat(metricRegistry.histogram("account.accountId.adapter.rubicon.prices").getCount()).isZero();
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.bids_received").getCount()).isZero();
+        assertThat(metricRegistry.counter(
+                "account.accountId.adapter.rubicon.requests.unknown_bidder").getCount()).isZero();
+        assertThat(metricRegistry.counter(
+                "account.accountId.adapter.rubicon.requests.disabled_bidder").getCount()).isZero();
+    }
+
+    @Test
+    public void shouldUpdateAccountRequestsMetricOnlyIfVerbosityIsDetailed() {
+        // given
+        given(accountMetricsVerbosityResolver.forAccount(any())).willReturn(AccountMetricsVerbosityLevel.detailed);
+
+        // when
+        metrics.updateAccountRequestMetrics(Account.empty(ACCOUNT_ID), MetricName.openrtb2web);
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), false);
+        metrics.updateAccountDebugRequestMetrics(Account.empty(ACCOUNT_ID), true);
+        metrics.updateAdapterResponseTime(RUBICON, Account.empty(ACCOUNT_ID), 500);
+        metrics.updateAdapterRequestNobidMetrics(RUBICON, Account.empty(ACCOUNT_ID));
+        metrics.updateAdapterRequestGotbidsMetrics(RUBICON, Account.empty(ACCOUNT_ID));
+        metrics.updateAdapterBidMetrics(RUBICON, Account.empty(ACCOUNT_ID), 1234L, true, "banner");
+        metrics.updateDisabledBidderMetric(Account.empty(ACCOUNT_ID));
+        metrics.updateUnknownBidderMetric(Account.empty(ACCOUNT_ID));
+
+        // then
+        assertThat(metricRegistry.counter("account.accountId.requests").getCount()).isOne();
+        assertThat(metricRegistry.counter("account.accountId.debug_requests").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.counter("account.accountId.requests.type.openrtb2-web").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.requests.nobid").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.requests.gotbids").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.histogram("account.accountId.adapter.rubicon.prices").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.counter("account.accountId.adapter.rubicon.bids_received").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.counter(
+                "unknown_bidder").getCount()).isEqualTo(1);
+        assertThat(metricRegistry.counter(
+                "account.accountId.requests.disabled_bidder").getCount()).isEqualTo(1);
     }
 
     @Test
@@ -1205,6 +1294,13 @@ public class MetricsTest {
                 "module1", Stage.raw_auction_request, "hook2", ExecutionStatus.success, 5L, ExecutionAction.no_action);
         metrics.updateHooksMetrics(
                 "module1",
+                Stage.raw_auction_request,
+                "hook2",
+                ExecutionStatus.success,
+                5L,
+                ExecutionAction.no_invocation);
+        metrics.updateHooksMetrics(
+                "module1",
                 Stage.processed_auction_request,
                 "hook3",
                 ExecutionStatus.success,
@@ -1215,9 +1311,12 @@ public class MetricsTest {
         metrics.updateHooksMetrics(
                 "module2", Stage.raw_bidder_response, "hook2", ExecutionStatus.timeout, 7L, null);
         metrics.updateHooksMetrics(
-                "module2", Stage.processed_bidder_response, "hook3", ExecutionStatus.execution_failure, 5L, null);
+                "module2", Stage.all_processed_bid_responses, "hook3", ExecutionStatus.execution_failure, 5L, null);
         metrics.updateHooksMetrics(
                 "module2", Stage.auction_response, "hook4", ExecutionStatus.invocation_failure, 5L, null);
+
+        metrics.updateHooksMetrics(
+                "module1", Stage.exitpoint, "hook5", ExecutionStatus.success, 5L, ExecutionAction.update);
 
         // then
         assertThat(metricRegistry.counter("modules.module.module1.stage.entrypoint.hook.hook1.call")
@@ -1232,6 +1331,9 @@ public class MetricsTest {
         assertThat(metricRegistry.counter("modules.module.module1.stage.rawauction.hook.hook2.call").getCount())
                 .isEqualTo(1);
         assertThat(metricRegistry.counter("modules.module.module1.stage.rawauction.hook.hook2.success.noop").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.counter("modules.module.module1.stage.rawauction.hook.hook2.success.no-invocation")
+                .getCount())
                 .isEqualTo(1);
         assertThat(metricRegistry.timer("modules.module.module1.stage.rawauction.hook.hook2.duration").getCount())
                 .isEqualTo(1);
@@ -1258,12 +1360,14 @@ public class MetricsTest {
         assertThat(metricRegistry.timer("modules.module.module2.stage.rawbidresponse.hook.hook2.duration").getCount())
                 .isEqualTo(1);
 
-        assertThat(metricRegistry.counter("modules.module.module2.stage.procbidresponse.hook.hook3.call").getCount())
-                .isEqualTo(1);
-        assertThat(metricRegistry.counter("modules.module.module2.stage.procbidresponse.hook.hook3.execution-error")
+        assertThat(metricRegistry.counter("modules.module.module2.stage.allprocbidresponses.hook.hook3.call")
                 .getCount())
                 .isEqualTo(1);
-        assertThat(metricRegistry.timer("modules.module.module2.stage.procbidresponse.hook.hook3.duration").getCount())
+        assertThat(metricRegistry.counter("modules.module.module2.stage.allprocbidresponses.hook.hook3.execution-error")
+                .getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.timer("modules.module.module2.stage.allprocbidresponses.hook.hook3.duration")
+                .getCount())
                 .isEqualTo(1);
 
         assertThat(metricRegistry.counter("modules.module.module2.stage.auctionresponse.hook.hook4.call").getCount())
@@ -1272,6 +1376,15 @@ public class MetricsTest {
                 .getCount())
                 .isEqualTo(1);
         assertThat(metricRegistry.timer("modules.module.module2.stage.auctionresponse.hook.hook4.duration").getCount())
+                .isEqualTo(1);
+
+        assertThat(metricRegistry.counter("modules.module.module1.stage.exitpoint.hook.hook5.call")
+                .getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.counter("modules.module.module1.stage.exitpoint.hook.hook5.success.update")
+                .getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.timer("modules.module.module1.stage.exitpoint.hook.hook5.duration").getCount())
                 .isEqualTo(1);
     }
 
@@ -1287,6 +1400,8 @@ public class MetricsTest {
                 Account.empty("accountId"), "module2", ExecutionStatus.failure, null);
         metrics.updateAccountHooksMetrics(
                 Account.empty("accountId"), "module3", ExecutionStatus.timeout, null);
+        metrics.updateAccountHooksMetrics(
+                Account.empty("accountId"), "module4", ExecutionStatus.success, ExecutionAction.no_invocation);
 
         // then
         assertThat(metricRegistry.counter("account.accountId.modules.module.module1.call").getCount())
@@ -1302,6 +1417,11 @@ public class MetricsTest {
         assertThat(metricRegistry.counter("account.accountId.modules.module.module3.call").getCount())
                 .isEqualTo(1);
         assertThat(metricRegistry.counter("account.accountId.modules.module.module3.failure").getCount())
+                .isEqualTo(1);
+
+        assertThat(metricRegistry.counter("account.accountId.modules.module.module4.call").getCount())
+                .isEqualTo(0);
+        assertThat(metricRegistry.counter("account.accountId.modules.module.module4.success.no-invocation").getCount())
                 .isEqualTo(1);
     }
 
@@ -1351,15 +1471,6 @@ public class MetricsTest {
         // then
         assertThat(metricRegistry.timer("account.accountId.modules.module.module1.duration").getCount())
                 .isZero();
-    }
-
-    @Test
-    public void shouldIncrementWinNotificationMetric() {
-        // when
-        metrics.updateWinNotificationMetric();
-
-        // then
-        assertThat(metricRegistry.counter("win_notifications").getCount()).isEqualTo(1);
     }
 
     @Test
@@ -1418,6 +1529,25 @@ public class MetricsTest {
 
         // then
         assertThat(metricRegistry.counter("account.account_id.requests.rejected.account-fetch-failed").getCount())
+                .isEqualTo(1);
+    }
+
+    @Test
+    public void shouldIncrementPrebidCacheCreativeTtlHistogram() {
+        // when
+        metrics.updateCacheCreativeTtl("accountId", 123, MetricName.json);
+        metrics.updateCacheCreativeTtl("accountId", 456, MetricName.xml);
+        metrics.updateCacheCreativeTtl("accountId", 789, MetricName.unknown);
+
+        // then
+        assertThat(metricRegistry.histogram("prebid_cache.creative_ttl.json").getCount()).isEqualTo(1);
+        assertThat(metricRegistry.histogram("account.accountId.prebid_cache.creative_ttl.json").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.histogram("prebid_cache.creative_ttl.xml").getCount()).isEqualTo(1);
+        assertThat(metricRegistry.histogram("account.accountId.prebid_cache.creative_ttl.xml").getCount())
+                .isEqualTo(1);
+        assertThat(metricRegistry.histogram("prebid_cache.creative_ttl.unknown").getCount()).isEqualTo(1);
+        assertThat(metricRegistry.histogram("account.accountId.prebid_cache.creative_ttl.unknown").getCount())
                 .isEqualTo(1);
     }
 

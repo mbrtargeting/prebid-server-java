@@ -8,9 +8,26 @@
           "mimes"
         ],
         "w": 300,
-        "h": 250
+        "h": 250,
+        "placement": 1
       },
       "ext": {
+        "prebid": {
+          "imp": {
+            "generic": {
+              "pmp": {
+                "deals": [
+                  {
+                    "id": "dealId"
+                  }
+                ]
+              },
+              "ext": {
+                "someExt": "someExt"
+              }
+            }
+          }
+        },
         "generic": {
           "accountId": 2001,
           "siteId": 3001,

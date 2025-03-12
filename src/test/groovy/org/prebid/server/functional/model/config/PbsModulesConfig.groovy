@@ -10,4 +10,7 @@ import org.prebid.server.functional.model.request.auction.RichmediaFilter
 class PbsModulesConfig {
 
     RichmediaFilter pbRichmediaFilter
+    Ortb2BlockingConfig ortb2Blocking
+    PbResponseCorrection pbResponseCorrection
+    PbRequestCorrectionConfig pbRequestCorrection
 }

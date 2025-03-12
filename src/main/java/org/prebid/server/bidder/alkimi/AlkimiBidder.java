@@ -36,8 +36,6 @@ public class AlkimiBidder implements Bidder<BidRequest> {
     private final String endpointUrl;
     private final JacksonMapper mapper;
 
-    private static final String TYPE_BANNER = "Banner";
-    private static final String TYPE_VIDEO = "Video";
     private static final String PRICE_MACRO = "${AUCTION_PRICE}";
 
     private static final TypeReference<ExtPrebid<?, ExtImpAlkimi>> ALKIMI_EXT_TYPE_REFERENCE = new TypeReference<>() {
@@ -69,13 +67,16 @@ public class AlkimiBidder implements Bidder<BidRequest> {
     private Imp updateImp(Imp imp, ExtImpAlkimi extImpAlkimi) {
         final Price bidFloorPrice = Price.of(imp.getBidfloorcur(), imp.getBidfloor());
 
+        final ObjectNode newExt = imp.getExt().deepCopy();
+        newExt.replace("bidder", makeImpExt(imp, extImpAlkimi));
+
         return imp.toBuilder()
                 .bidfloor(BidderUtil.isValidPrice(bidFloorPrice)
                         ? bidFloorPrice.getValue()
                         : extImpAlkimi.getBidFloor())
                 .instl(extImpAlkimi.getInstl())
                 .exp(extImpAlkimi.getExp())
-                .ext(makeImpExt(imp, extImpAlkimi))
+                .ext(newExt)
                 .build();
     }
 
@@ -84,7 +85,7 @@ public class AlkimiBidder implements Bidder<BidRequest> {
 
         extBuilder.adUnitCode(imp.getId());
 
-        return mapper.mapper().valueToTree(ExtPrebid.of(null, extBuilder.build()));
+        return mapper.mapper().valueToTree(extBuilder.build());
     }
 
     @Override

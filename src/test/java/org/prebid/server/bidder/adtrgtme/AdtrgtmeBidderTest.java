@@ -12,7 +12,7 @@ import com.iab.openrtb.response.BidResponse;
 import com.iab.openrtb.response.SeatBid;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.http.HttpMethod;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.prebid.server.VertxTest;
 import org.prebid.server.bidder.model.BidderBid;
 import org.prebid.server.bidder.model.BidderCall;
@@ -21,7 +21,6 @@ import org.prebid.server.bidder.model.HttpRequest;
 import org.prebid.server.bidder.model.HttpResponse;
 import org.prebid.server.bidder.model.Result;
 import org.prebid.server.proto.openrtb.ext.ExtPrebid;
-import org.prebid.server.proto.openrtb.ext.request.adrino.ExtImpAdrino;
 import org.prebid.server.proto.openrtb.ext.request.adtrgtme.ExtImpAdtrgtme;
 import org.prebid.server.util.HttpUtil;
 
@@ -129,9 +128,9 @@ public class AdtrgtmeBidderTest extends VertxTest {
         // given
         final BidRequest bidRequest = BidRequest.builder().site(Site.builder().id("site_id").build())
                 .imp(asList(givenImp(impBuilder -> impBuilder.xNative(Native.builder().build())
-                                .ext(mapper.valueToTree(ExtPrebid.of(null, ExtImpAdrino.of("test"))))),
+                                .ext(mapper.valueToTree(ExtPrebid.of(null, ExtImpAdtrgtme.of(1))))),
                         givenImp(impBuilder -> impBuilder.xNative(Native.builder().build())
-                                .ext(mapper.valueToTree(ExtPrebid.of(null, ExtImpAdrino.of("test"))))))).build();
+                                .ext(mapper.valueToTree(ExtPrebid.of(null, ExtImpAdtrgtme.of(1))))))).build();
 
         // when
         final Result<List<HttpRequest<BidRequest>>> result = target.makeHttpRequests(bidRequest);

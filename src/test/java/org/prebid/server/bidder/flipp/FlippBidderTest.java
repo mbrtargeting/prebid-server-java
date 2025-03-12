@@ -2,6 +2,7 @@ package org.prebid.server.bidder.flipp;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.iab.openrtb.request.Banner;
 import com.iab.openrtb.request.BidRequest;
 import com.iab.openrtb.request.Device;
@@ -14,7 +15,7 @@ import com.iab.openrtb.response.Bid;
 import com.iabtcf.encoder.TCStringEncoder;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.vertx.core.MultiMap;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.prebid.server.VertxTest;
 import org.prebid.server.bidder.flipp.model.request.CampaignRequestBody;
 import org.prebid.server.bidder.flipp.model.request.CampaignRequestBodyUser;
@@ -768,7 +769,7 @@ public class FlippBidderTest extends VertxTest {
         final BidRequest bidRequest = givenBidRequest(identity());
 
         // and
-        final Integer creativeId = 1;
+        final int creativeId = 1;
         final BidderCall<CampaignRequestBody> httpCall = givenHttpCall(CampaignRequestBody.builder().build(),
                 mapper.writeValueAsString(givenCampaignResponseBody(inlineBuilder ->
                         inlineBuilder.creativeId(creativeId))));
@@ -781,7 +782,7 @@ public class FlippBidderTest extends VertxTest {
         assertThat(result.getValue()).hasSize(1)
                 .extracting(BidderBid::getBid)
                 .extracting(Bid::getCrid)
-                .containsExactly(creativeId.toString());
+                .containsExactly(Integer.toString(creativeId));
     }
 
     @Test
@@ -917,15 +918,21 @@ public class FlippBidderTest extends VertxTest {
     }
 
     @Test
-    public void makeBidsShouldPopulateBidHeightWithZeroWhenInlineContentsIsPresent() throws JsonProcessingException {
-        // given
-        final BidRequest bidRequest = givenBidRequest(identity());
+    public void makeBidsShouldPopulateBidDefaultStandardHeightWhenInlineCustomDataIsAbsent()
+            throws JsonProcessingException {
 
-        // and
+        // given
+        final BidRequest bidRequest = givenBidRequest(givenImp(identity(), extImp -> extImp
+                .options(ExtImpFlippOptions.of(false, null, null))));
+
+        final ObjectNode customData = mapper.createObjectNode()
+                .put("compactHeight", 20)
+                .put("standardHeight", 30);
+
         final BidderCall<CampaignRequestBody> httpCall = givenHttpCall(CampaignRequestBody.builder().build(),
-                mapper.writeValueAsString(givenCampaignResponseBody(inlineBuilder ->
-                        inlineBuilder.contents(singletonList(
-                                Content.of("any", "custom", Data.of(null, 10, 20), "type"))))));
+                mapper.writeValueAsString(givenCampaignResponseBody(inlineBuilder -> inlineBuilder
+                        .contents(singletonList(Content.of(
+                                "any", "custom", Data.of(null, 10, 20), "type"))))));
 
         // when
         final Result<List<BidderBid>> result = target.makeBids(httpCall, bidRequest);
@@ -935,7 +942,87 @@ public class FlippBidderTest extends VertxTest {
         assertThat(result.getValue()).hasSize(1)
                 .extracting(BidderBid::getBid)
                 .extracting(Bid::getH)
-                .containsExactly(0);
+                .containsExactly(2400);
+    }
+
+    @Test
+    public void makeBidsShouldPopulateBidDefaultCompactHeightWhenInlineCustomDataIsAbsent()
+            throws JsonProcessingException {
+
+        // given
+        final BidRequest bidRequest = givenBidRequest(givenImp(identity(), extImp -> extImp
+                .options(ExtImpFlippOptions.of(true, null, null))));
+
+        final BidderCall<CampaignRequestBody> httpCall = givenHttpCall(CampaignRequestBody.builder().build(),
+                mapper.writeValueAsString(givenCampaignResponseBody(inlineBuilder -> inlineBuilder
+                        .contents(singletonList(Content.of(
+                                "any", "custom", Data.of(null, 10, 20), "type"))))));
+
+        // when
+        final Result<List<BidderBid>> result = target.makeBids(httpCall, bidRequest);
+
+        // then
+        assertThat(result.getErrors()).isEmpty();
+        assertThat(result.getValue()).hasSize(1)
+                .extracting(BidderBid::getBid)
+                .extracting(Bid::getH)
+                .containsExactly(600);
+    }
+
+    @Test
+    public void makeBidsShouldPopulateBidCompactHeightFromCustomDataWhenStartCompactIsTrue()
+            throws JsonProcessingException {
+
+        // given
+        final BidRequest bidRequest = givenBidRequest(givenImp(identity(), extImp -> extImp
+                .options(ExtImpFlippOptions.of(true, null, null))));
+
+        final ObjectNode customData = mapper.createObjectNode()
+                .put("compactHeight", 20)
+                .put("standardHeight", 30);
+
+        final BidderCall<CampaignRequestBody> httpCall = givenHttpCall(CampaignRequestBody.builder().build(),
+                mapper.writeValueAsString(givenCampaignResponseBody(inlineBuilder -> inlineBuilder
+                        .contents(singletonList(Content.of(
+                                "any", "custom", Data.of(customData, 10, 20), "type"))))));
+
+        // when
+        final Result<List<BidderBid>> result = target.makeBids(httpCall, bidRequest);
+
+        // then
+        assertThat(result.getErrors()).isEmpty();
+        assertThat(result.getValue()).hasSize(1)
+                .extracting(BidderBid::getBid)
+                .extracting(Bid::getH)
+                .containsExactly(20);
+    }
+
+    @Test
+    public void makeBidsShouldPopulateBidStandardHeightFromCustomDataWhenStartCompactIsFalse()
+            throws JsonProcessingException {
+
+        // given
+        final BidRequest bidRequest = givenBidRequest(givenImp(identity(), extImp -> extImp
+                .options(ExtImpFlippOptions.of(false, null, null))));
+
+        final ObjectNode customData = mapper.createObjectNode()
+                .put("compactHeight", 20)
+                .put("standardHeight", 30);
+
+        final BidderCall<CampaignRequestBody> httpCall = givenHttpCall(CampaignRequestBody.builder().build(),
+                mapper.writeValueAsString(givenCampaignResponseBody(inlineBuilder -> inlineBuilder
+                        .contents(singletonList(Content.of(
+                                "any", "custom", Data.of(customData, 10, 20), "type"))))));
+
+        // when
+        final Result<List<BidderBid>> result = target.makeBids(httpCall, bidRequest);
+
+        // then
+        assertThat(result.getErrors()).isEmpty();
+        assertThat(result.getValue()).hasSize(1)
+                .extracting(BidderBid::getBid)
+                .extracting(Bid::getH)
+                .containsExactly(30);
     }
 
     @Test
@@ -1011,14 +1098,27 @@ public class FlippBidderTest extends VertxTest {
         return givenBidRequest(identity(), impCustomizer);
     }
 
+    private static BidRequest givenBidRequest(Imp givenImp) {
+        return BidRequest.builder()
+                        .device(Device.builder().ip("anyId").build())
+                        .imp(singletonList(givenImp))
+                .build();
+    }
+
     private static Imp givenImp(UnaryOperator<Imp.ImpBuilder> impCustomizer) {
+        return givenImp(impCustomizer, identity());
+    }
+
+    private static Imp givenImp(UnaryOperator<Imp.ImpBuilder> impCustomizer,
+                                UnaryOperator<ExtImpFlipp.ExtImpFlippBuilder> extImpBuilder) {
+
         return impCustomizer.apply(Imp.builder()
                         .id("123")
                         .banner(Banner.builder().w(23).h(25).build())
-                        .ext(mapper.valueToTree(ExtPrebid.of(null, ExtImpFlipp.builder()
+                        .ext(mapper.valueToTree(ExtPrebid.of(null, extImpBuilder.apply(ExtImpFlipp.builder()
                                 .publisherNameIdentifier("publisherName")
                                 .creativeType("Any")
-                                .zoneIds(List.of(12))
+                                .zoneIds(List.of(12)))
                                 .build()))))
                 .build();
     }

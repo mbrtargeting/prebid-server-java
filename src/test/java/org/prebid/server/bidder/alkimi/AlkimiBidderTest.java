@@ -11,7 +11,7 @@ import com.iab.openrtb.request.Video;
 import com.iab.openrtb.response.Bid;
 import com.iab.openrtb.response.BidResponse;
 import com.iab.openrtb.response.SeatBid;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.prebid.server.VertxTest;
 import org.prebid.server.bidder.model.BidderBid;
 import org.prebid.server.bidder.model.BidderCall;
@@ -25,6 +25,7 @@ import org.prebid.server.proto.openrtb.ext.request.alkimi.ExtImpAlkimi;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import static java.util.Collections.singletonList;
@@ -109,9 +110,10 @@ public class AlkimiBidderTest extends VertxTest {
     }
 
     private ObjectNode expectedBannerExt() {
-        return mapper.valueToTree(ExtPrebid.of(
-                null,
-                ExtImpAlkimi.builder()
+        return mapper.valueToTree(Map.of(
+                "tid", "12345",
+                "gpid", "300x250",
+                "bidder", ExtImpAlkimi.builder()
                         .token(PUB_TOKEN)
                         .bidFloor(BigDecimal.valueOf(0.2))
                         .instl(1)
@@ -252,9 +254,10 @@ public class AlkimiBidderTest extends VertxTest {
                                 .h(250)
                                 .build())
                         ).build())
-                .ext(mapper.valueToTree(ExtPrebid.of(
-                        null,
-                        ExtImpAlkimi.builder()
+                .ext(mapper.valueToTree(Map.of(
+                        "tid", "12345",
+                        "gpid", "300x250",
+                        "bidder", ExtImpAlkimi.builder()
                                 .token(PUB_TOKEN)
                                 .bidFloor(BigDecimal.valueOf(0.2))
                                 .instl(1)
@@ -346,4 +349,3 @@ public class AlkimiBidderTest extends VertxTest {
                 null);
     }
 }
-

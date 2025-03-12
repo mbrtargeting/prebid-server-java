@@ -12,7 +12,9 @@ enum ErrorType {
     PREBID("prebid"),
     CACHE("cache"),
     ALIAS("alias"),
-    TARGETING("targeting")
+    TARGETING("targeting"),
+    IX("ix"),
+    OPENX("openx")
 
     @JsonValue
     final String value

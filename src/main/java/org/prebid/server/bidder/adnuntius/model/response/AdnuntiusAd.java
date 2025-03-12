@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Value;
 
+import java.util.List;
 import java.util.Map;
 
 @Builder
@@ -13,10 +14,10 @@ public class AdnuntiusAd {
     AdnuntiusBid bid;
 
     @JsonProperty("netBid")
-    AdnuntiusNetBid adnuntiusNetBid;
+    AdnuntiusNetBid netBid;
 
     @JsonProperty("grossBid")
-    AdnuntiusGrossBid adnuntiusGrossBid;
+    AdnuntiusGrossBid grossBid;
 
     @JsonProperty("dealId")
     String dealId;
@@ -36,6 +37,13 @@ public class AdnuntiusAd {
     @JsonProperty("lineItemId")
     String lineItemId;
 
+    String html;
+
     @JsonProperty("destinationUrls")
     Map<String, String> destinationUrls;
+
+    @JsonProperty("advertiserDomains")
+    List<String> advertiserDomains;
+
+    AdnuntiusAdvertiser advertiser;
 }

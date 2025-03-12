@@ -9,19 +9,18 @@ import com.maxmind.geoip2.record.Country;
 import com.maxmind.geoip2.record.Location;
 import com.maxmind.geoip2.record.Subdivision;
 import io.vertx.core.Future;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.internal.util.reflection.ReflectionMemberAccessor;
 import org.prebid.server.geolocation.model.GeoInfo;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
@@ -31,7 +30,7 @@ public class MaxMindGeoLocationServiceTest {
 
     private MaxMindGeoLocationService maxMindGeoLocationService;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         maxMindGeoLocationService = new MaxMindGeoLocationService();
     }
@@ -62,21 +61,37 @@ public class MaxMindGeoLocationServiceTest {
     public void lookupShouldReturnCountryIsoWhenDatabaseReaderWasSet() throws NoSuchFieldException, IOException,
             GeoIp2Exception, IllegalAccessException {
         // given
-        final Country country = new Country(null, null, null, "fr", null);
-        final Continent continent = new Continent(null, "eu", null, null);
-        final City city = new City(singletonList("test"), null, null, singletonMap("test", "Paris"));
-        final Location location = new Location(null, null, 48.8566, 2.3522,
-                null, null, null);
-        final ArrayList<Subdivision> subdivisions = new ArrayList<>();
-        subdivisions.add(new Subdivision(null, null, null, "paris", null));
-        final CityResponse cityResponse = new CityResponse(city, continent, country, location, null,
-                null, null, null, subdivisions, null);
+        final Country country = Mockito.mock(Country.class);
+        Mockito.when(country.getIsoCode()).thenReturn("fr");
+
+        final Continent continent = Mockito.mock(Continent.class);
+        Mockito.when(continent.getCode()).thenReturn("eu");
+
+        final City city = Mockito.mock(City.class);
+        Mockito.when(city.getNames()).thenReturn(singletonMap("en", "Paris"));
+        Mockito.when(city.getName()).thenReturn("Paris");
+
+        final Location location = Mockito.mock(Location.class);
+        Mockito.when(location.getLatitude()).thenReturn(48.8566);
+        Mockito.when(location.getLongitude()).thenReturn(2.3522);
+
+        final Subdivision subdivision = Mockito.mock(Subdivision.class);
+        Mockito.when(subdivision.getIsoCode()).thenReturn("paris");
+
+        final CityResponse cityResponse = Mockito.mock(CityResponse.class);
+        Mockito.when(cityResponse.getCountry()).thenReturn(country);
+        Mockito.when(cityResponse.getContinent()).thenReturn(continent);
+        Mockito.when(cityResponse.getCity()).thenReturn(city);
+        Mockito.when(cityResponse.getLocation()).thenReturn(location);
+        Mockito.when(cityResponse.getSubdivisions()).thenReturn(singletonList(subdivision));
 
         final DatabaseReader databaseReader = Mockito.mock(DatabaseReader.class);
         given(databaseReader.city(any())).willReturn(cityResponse);
 
-        new ReflectionMemberAccessor().set(maxMindGeoLocationService.getClass().getDeclaredField("databaseReader"),
-                maxMindGeoLocationService, databaseReader);
+        new ReflectionMemberAccessor().set(
+                maxMindGeoLocationService.getClass().getDeclaredField("databaseReader"),
+                maxMindGeoLocationService,
+                databaseReader);
 
         // when
         final Future<GeoInfo> future = maxMindGeoLocationService.lookup(TEST_IP, null);

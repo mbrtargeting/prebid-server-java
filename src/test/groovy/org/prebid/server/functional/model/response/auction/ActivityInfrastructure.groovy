@@ -2,8 +2,8 @@ package org.prebid.server.functional.model.response.auction
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.annotation.JsonNaming
-import groovy.transform.ToString
 import groovy.transform.EqualsAndHashCode
+import groovy.transform.ToString
 import org.prebid.server.functional.model.request.auction.ActivityType
 
 @ToString(includeNames = true, ignoreNulls = true)
@@ -17,7 +17,7 @@ class ActivityInfrastructure {
     RuleConfiguration ruleConfiguration
     Boolean allowByDefault
     Boolean allowed
-    String result
+    RuleResult result
     String region
     String country
 }

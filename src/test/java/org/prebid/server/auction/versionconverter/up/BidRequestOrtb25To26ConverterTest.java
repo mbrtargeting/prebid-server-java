@@ -9,7 +9,7 @@ import com.iab.openrtb.request.Regs;
 import com.iab.openrtb.request.Source;
 import com.iab.openrtb.request.SupplyChain;
 import com.iab.openrtb.request.User;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.prebid.server.VertxTest;
 import org.prebid.server.proto.openrtb.ext.request.ExtRegs;
 import org.prebid.server.proto.openrtb.ext.request.ExtSource;
@@ -242,7 +242,7 @@ public class BidRequestOrtb25To26ConverterTest extends VertxTest {
     @Test
     public void convertShouldMoveUserExtEidsToUserEidsIfNotPresent() {
         // given
-        final List<Eid> eids = singletonList(Eid.of("source", emptyList(), null));
+        final List<Eid> eids = singletonList(Eid.builder().source("source").uids(emptyList()).build());
         final BidRequest bidRequest = givenBidRequest(request -> request.user(
                 User.builder().ext(ExtUser.builder().eids(eids).build()).build()));
 
@@ -265,7 +265,7 @@ public class BidRequestOrtb25To26ConverterTest extends VertxTest {
     @Test
     public void convertShouldNotChangeUserEidsIfPresent() {
         // given
-        final List<Eid> eids = singletonList(Eid.of("source", emptyList(), null));
+        final List<Eid> eids = singletonList(Eid.builder().source("source").uids(emptyList()).build());
         final BidRequest bidRequest = givenBidRequest(request -> request.user(
                 User.builder().eids(eids).ext(ExtUser.builder().eids(emptyList()).build()).build()));
 
