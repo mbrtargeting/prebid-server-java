@@ -1,5 +1,5 @@
 adapters:
-  mockbidder:
+  mockstroeer:
     endpoint: http://mocks2.service.ssp.consul:3001/rtb
     meta-info:
       maintainer-email: help@cz.stroeer-labs.com
@@ -12,7 +12,7 @@ adapters:
       supported-vendors:
       vendor-id: 136
     usersync:
-      cookie-family-name: mockbidder
+      cookie-family-name: mockStroeer
       redirect:
         url: https://js.lsd.test/uu?gdpr={{gdpr}}&gdpr_consent={{gdpr_consent}}&cburl={{redirect_url}}
         support-cors: false

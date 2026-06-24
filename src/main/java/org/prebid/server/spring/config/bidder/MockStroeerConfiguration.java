@@ -1,7 +1,7 @@
 package org.prebid.server.spring.config.bidder;
 
 import org.prebid.server.bidder.BidderDeps;
-import org.prebid.server.bidder.mockbidder.MockBidder;
+import org.prebid.server.bidder.mockstroeer.MockStroeerBidder;
 import org.prebid.server.currency.CurrencyConversionService;
 import org.prebid.server.json.JacksonMapper;
 import org.prebid.server.spring.config.bidder.model.BidderConfigurationProperties;
@@ -17,27 +17,27 @@ import org.springframework.context.annotation.PropertySource;
 import javax.validation.constraints.NotBlank;
 
 @Configuration
-@PropertySource(value = "classpath:/bidder-config/mockbidder.yaml", factory = YamlPropertySourceFactory.class)
-public class MockBidderConfiguration {
+@PropertySource(value = "classpath:/bidder-config/mockstroeer.yaml", factory = YamlPropertySourceFactory.class)
+public class MockStroeerConfiguration {
 
-    private static final String BIDDER_NAME = "mockbidder";
+    private static final String BIDDER_NAME = "mockStroeer";
 
-    @Bean("mockbidderConfigurationProperties")
-    @ConfigurationProperties("adapters.mockbidder")
+    @Bean("mockstroeerConfigurationProperties")
+    @ConfigurationProperties("adapters.mockstroeer")
     BidderConfigurationProperties configurationProperties() {
         return new BidderConfigurationProperties();
     }
 
     @Bean
-    BidderDeps mockbidderBidderDeps(BidderConfigurationProperties mockbidderConfigurationProperties,
-                                    @NotBlank @Value("${external-url}") String externalUrl,
-                                    CurrencyConversionService currencyConversionService,
-                                    JacksonMapper mapper) {
+    BidderDeps mockstroeerBidderDeps(BidderConfigurationProperties mockstroeerConfigurationProperties,
+                                     @NotBlank @Value("${external-url}") String externalUrl,
+                                     CurrencyConversionService currencyConversionService,
+                                     JacksonMapper mapper) {
 
         return BidderDepsAssembler.forBidder(BIDDER_NAME)
-                .withConfig(mockbidderConfigurationProperties)
+                .withConfig(mockstroeerConfigurationProperties)
                 .usersyncerCreator(UsersyncerCreator.create(externalUrl))
-                .bidderCreator(config -> new MockBidder(config.getEndpoint(), mapper, currencyConversionService))
+                .bidderCreator(config -> new MockStroeerBidder(config.getEndpoint(), mapper, currencyConversionService))
                 .assemble();
     }
 }

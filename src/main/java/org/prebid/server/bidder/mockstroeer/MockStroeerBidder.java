@@ -1,4 +1,4 @@
-package org.prebid.server.bidder.mockbidder;
+package org.prebid.server.bidder.mockstroeer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.iab.openrtb.request.BidRequest;
@@ -20,7 +20,7 @@ import org.prebid.server.exception.PreBidException;
 import org.prebid.server.json.DecodeException;
 import org.prebid.server.json.JacksonMapper;
 import org.prebid.server.proto.openrtb.ext.ExtPrebid;
-import org.prebid.server.proto.openrtb.ext.request.mockbidder.ExtImpMockBidder;
+import org.prebid.server.proto.openrtb.ext.request.mockstroeer.ExtImpMockStroeer;
 import org.prebid.server.proto.openrtb.ext.response.BidType;
 import org.prebid.server.util.BidderUtil;
 import org.prebid.server.util.HttpUtil;
@@ -34,10 +34,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class MockBidder implements Bidder<BidRequest> {
+public class MockStroeerBidder implements Bidder<BidRequest> {
 
     private static final String BIDDER_CURRENCY = "EUR";
-    private static final TypeReference<ExtPrebid<?, ExtImpMockBidder>> MOCK_BIDDER_EXT_TYPE_REFERENCE =
+    private static final TypeReference<ExtPrebid<?, ExtImpMockStroeer>> MOCK_BIDDER_EXT_TYPE_REFERENCE =
             new TypeReference<>() {
             };
 
@@ -45,7 +45,7 @@ public class MockBidder implements Bidder<BidRequest> {
     private final JacksonMapper mapper;
     private final CurrencyConversionService currencyConversionService;
 
-    public MockBidder(String endpointUrl,
+    public MockStroeerBidder(String endpointUrl,
                              JacksonMapper mapper,
                              CurrencyConversionService currencyConversionService) {
         this.endpointUrl = HttpUtil.validateUrl(endpointUrl);
@@ -59,7 +59,7 @@ public class MockBidder implements Bidder<BidRequest> {
         final List<BidderError> errors = new ArrayList<>();
 
         for (Imp imp : bidRequest.getImp()) {
-            final ExtImpMockBidder impExt;
+            final ExtImpMockStroeer impExt;
             final Price price;
 
             try {
@@ -98,7 +98,7 @@ public class MockBidder implements Bidder<BidRequest> {
         }
     }
 
-    private ExtImpMockBidder parseImpExt(Imp imp) {
+    private ExtImpMockStroeer parseImpExt(Imp imp) {
         try {
             return mapper.mapper().convertValue(imp.getExt(), MOCK_BIDDER_EXT_TYPE_REFERENCE).getBidder();
         } catch (IllegalArgumentException e) {
@@ -106,7 +106,7 @@ public class MockBidder implements Bidder<BidRequest> {
         }
     }
 
-    private static void validateImpExt(ExtImpMockBidder impExt) {
+    private static void validateImpExt(ExtImpMockStroeer impExt) {
         if (StringUtils.isBlank(impExt.getSlotId())) {
             throw new PreBidException("Custom param slot id (sid) is empty");
         }
@@ -133,7 +133,7 @@ public class MockBidder implements Bidder<BidRequest> {
         return BidderUtil.isValidPrice(bidFloor) && !StringUtils.equalsIgnoreCase(bidFloorCurrency, BIDDER_CURRENCY);
     }
 
-    private static Imp modifyImp(Imp imp, ExtImpMockBidder impExt, Price price) {
+    private static Imp modifyImp(Imp imp, ExtImpMockStroeer impExt, Price price) {
         return imp.toBuilder()
                 .bidfloorcur(price.getCurrency())
                 .bidfloor(price.getValue())
