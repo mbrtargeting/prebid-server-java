@@ -27,6 +27,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 public class DeviceEnricher {
+
     private static final String EXT_DEVICE_ID_KEY = "fiftyonedegrees_deviceId";
 
     private final Pipeline pipeline;
@@ -94,6 +95,12 @@ public class DeviceEnricher {
         if (resolvedModel.isUpdated()) {
             deviceBuilder.model(resolvedModel.getValue());
             updatedFields.add("model");
+        }
+
+        final UpdateResult<String> resolvedHwv = resolveDeviceHwv(device, deviceData);
+        if (resolvedHwv.isUpdated()) {
+            deviceBuilder.hwv(resolvedHwv.getValue());
+            updatedFields.add("hwv");
         }
 
         final UpdateResult<String> resolvedOs = resolveOs(device, deviceData);
@@ -181,6 +188,11 @@ public class DeviceEnricher {
         final String currentModel = device.getModel();
         if (StringUtils.isNotBlank(currentModel)) {
             return UpdateResult.unaltered(currentModel);
+        }
+
+        final String hardwareNamePrefix = getSafe(deviceData, DeviceData::getHardwareNamePrefix);
+        if (StringUtils.isNotBlank(hardwareNamePrefix)) {
+            return UpdateResult.updated(hardwareNamePrefix);
         }
 
         final String model = getSafe(deviceData, DeviceData::getHardwareModel);
@@ -283,6 +295,18 @@ public class DeviceEnricher {
                 : UpdateResult.unaltered(currentDeviceId);
     }
 
+    private UpdateResult<String> resolveDeviceHwv(Device device, DeviceData deviceData) {
+        final String currentDeviceHwv = device.getHwv();
+        if (StringUtils.isNotEmpty(currentDeviceHwv)) {
+            return UpdateResult.unaltered(currentDeviceHwv);
+        }
+
+        final String deviceHwv = getSafe(deviceData, DeviceData::getHardwareNameVersion);
+        return StringUtils.isNotEmpty(deviceHwv)
+                ? UpdateResult.updated(deviceHwv)
+                : UpdateResult.unaltered(currentDeviceHwv);
+    }
+
     private static boolean isPositive(Integer value) {
         return value != null && value > 0;
     }
@@ -297,7 +321,7 @@ public class DeviceEnricher {
             return null;
         }
         final JsonNode savedValue = ext.getProperty(EXT_DEVICE_ID_KEY);
-        return (savedValue != null && savedValue.isTextual()) ? savedValue.textValue() : null;
+        return savedValue != null && savedValue.isTextual() ? savedValue.textValue() : null;
     }
 
     private static void setDeviceId(Device.DeviceBuilder deviceBuilder, Device device, String deviceId) {
@@ -324,4 +348,3 @@ public class DeviceEnricher {
         return null;
     }
 }
-

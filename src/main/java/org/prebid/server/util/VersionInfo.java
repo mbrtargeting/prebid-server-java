@@ -1,7 +1,6 @@
 package org.prebid.server.util;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.AllArgsConstructor;
 import lombok.Value;
 import org.prebid.server.json.JacksonMapper;
 import org.prebid.server.log.Logger;
@@ -15,7 +14,7 @@ import java.util.regex.Pattern;
 public class VersionInfo {
 
     private static final Logger logger = LoggerFactory.getLogger(VersionInfo.class);
-    private static final String UNDEFINED = "undefined";
+    public static final String UNDEFINED = "undefined";
 
     String version;
     String commitHash;
@@ -48,8 +47,7 @@ public class VersionInfo {
         return versionMatcher.lookingAt() ? versionMatcher.group() : null;
     }
 
-    @AllArgsConstructor(staticName = "of")
-    @Value
+    @Value(staticConstructor = "of")
     private static class Revision {
 
         @JsonProperty("git.commit.id")

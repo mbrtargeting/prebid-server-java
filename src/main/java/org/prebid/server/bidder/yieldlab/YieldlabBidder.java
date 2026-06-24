@@ -153,7 +153,8 @@ public class YieldlabBidder implements Bidder<Void> {
     }
 
     private String makeUrl(ExtImpYieldlab extImpYieldlab, BidRequest request, Map<String, ExtImpYieldlab> extImps) {
-        final String updatedPath = "%s/%s".formatted(endpointUrl, extImpYieldlab.getAdslotId());
+        final String updatedPath = "%s/%s".formatted(
+                endpointUrl, HttpUtil.validatePathSegment(extImpYieldlab.getAdslotId()));
 
         final URIBuilder uriBuilder;
         try {
@@ -464,6 +465,7 @@ public class YieldlabBidder implements Bidder<Void> {
         }
 
         final Format adsize = resolveAdSize(yieldlabBid.getAdSize());
+        final String advertiser = yieldlabBid.getAdvertiser();
         final Bid bid = Bid.builder()
                 .id(adSlotId)
                 .price(BigDecimal.valueOf(yieldlabBid.getPrice() / 100))
@@ -476,6 +478,7 @@ public class YieldlabBidder implements Bidder<Void> {
                         : makeBanner(bidRequest, extImp, yieldlabBid))
                 .w(adsize.getW())
                 .h(adsize.getH())
+                .adomain(advertiser != null ? Collections.singletonList(advertiser) : null)
                 .ext(resolveBidExt(yieldlabBid, errors))
                 .build();
 
@@ -544,9 +547,9 @@ public class YieldlabBidder implements Bidder<Void> {
         }
 
         return AD_SOURCE_URL.formatted(
-                extImp.getAdslotId(),
-                extImp.getSupplyId(),
-                yieldlabBid.getAdSize(),
+                HttpUtil.validatePathSegment(extImp.getAdslotId()),
+                HttpUtil.validatePathSegment(extImp.getSupplyId()),
+                HttpUtil.validatePathSegment(yieldlabBid.getAdSize()),
                 uriBuilder.toString().replace("?", ""));
     }
 

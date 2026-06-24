@@ -78,7 +78,7 @@ public class AdheseBidder implements Bidder<BidRequest> {
     }
 
     private String getUrl(ExtImpAdhese extImpAdhese) {
-        return endpointUrl.replace("{{AccountId}}", extImpAdhese.getAccount());
+        return endpointUrl.replace("{{AccountId}}", HttpUtil.validateDomainName(extImpAdhese.getAccount()));
     }
 
     private BidRequest modifyBidRequest(BidRequest bidRequest, ExtImpAdhese extImpAdhese) {
@@ -127,7 +127,7 @@ public class AdheseBidder implements Bidder<BidRequest> {
             }
 
             final Bid bid = optionalBid.get();
-            final AdheseOriginData originData = toObjectOfType(bid.getExt().get("adhese"), AdheseOriginData.class);
+            final AdheseOriginData originData = toAdheseOriginData(bid.getExt().get("adhese"));
             final Bid modifiedBid = bid.toBuilder()
                     .ext(mapper.mapper().valueToTree(originData)) // unwrap from "adhese"
                     .build();
@@ -151,9 +151,9 @@ public class AdheseBidder implements Bidder<BidRequest> {
                 .findFirst();
     }
 
-    private <T> T toObjectOfType(JsonNode jsonNode, Class<T> clazz) {
+    private AdheseOriginData toAdheseOriginData(JsonNode jsonNode) {
         try {
-            return mapper.mapper().treeToValue(jsonNode, clazz);
+            return mapper.mapper().treeToValue(jsonNode, AdheseOriginData.class);
         } catch (JsonProcessingException e) {
             throw new PreBidException(e.getMessage(), e);
         }

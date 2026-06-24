@@ -23,7 +23,8 @@ import org.prebid.server.auction.GeoLocationServiceWrapper;
 import org.prebid.server.auction.ImplicitParametersExtractor;
 import org.prebid.server.auction.OrtbTypesResolver;
 import org.prebid.server.auction.PriceGranularity;
-import org.prebid.server.auction.StoredRequestProcessor;
+import org.prebid.server.auction.externalortb.ProfilesProcessor;
+import org.prebid.server.auction.externalortb.StoredRequestProcessor;
 import org.prebid.server.auction.gpp.AmpGppService;
 import org.prebid.server.auction.model.AuctionContext;
 import org.prebid.server.auction.model.ConsentType;
@@ -90,6 +91,7 @@ public class AmpRequestFactory {
 
     private final Ortb2RequestFactory ortb2RequestFactory;
     private final StoredRequestProcessor storedRequestProcessor;
+    private final ProfilesProcessor profilesProcessor;
     private final BidRequestOrtbVersionConversionManager ortbVersionConversionManager;
     private final AmpGppService gppService;
     private final OrtbTypesResolver ortbTypesResolver;
@@ -100,9 +102,11 @@ public class AmpRequestFactory {
     private final DebugResolver debugResolver;
     private final JacksonMapper mapper;
     private final GeoLocationServiceWrapper geoLocationServiceWrapper;
+    private final TcfDefinerService tcfDefinerService;
 
     public AmpRequestFactory(Ortb2RequestFactory ortb2RequestFactory,
                              StoredRequestProcessor storedRequestProcessor,
+                             ProfilesProcessor profilesProcessor,
                              BidRequestOrtbVersionConversionManager ortbVersionConversionManager,
                              AmpGppService gppService,
                              OrtbTypesResolver ortbTypesResolver,
@@ -112,10 +116,12 @@ public class AmpRequestFactory {
                              AmpPrivacyContextFactory ampPrivacyContextFactory,
                              DebugResolver debugResolver,
                              JacksonMapper mapper,
-                             GeoLocationServiceWrapper geoLocationServiceWrapper) {
+                             GeoLocationServiceWrapper geoLocationServiceWrapper,
+                             TcfDefinerService tcfDefinerService) {
 
         this.ortb2RequestFactory = Objects.requireNonNull(ortb2RequestFactory);
         this.storedRequestProcessor = Objects.requireNonNull(storedRequestProcessor);
+        this.profilesProcessor = Objects.requireNonNull(profilesProcessor);
         this.ortbVersionConversionManager = Objects.requireNonNull(ortbVersionConversionManager);
         this.gppService = Objects.requireNonNull(gppService);
         this.ortbTypesResolver = Objects.requireNonNull(ortbTypesResolver);
@@ -126,13 +132,14 @@ public class AmpRequestFactory {
         this.ampPrivacyContextFactory = Objects.requireNonNull(ampPrivacyContextFactory);
         this.mapper = Objects.requireNonNull(mapper);
         this.geoLocationServiceWrapper = Objects.requireNonNull(geoLocationServiceWrapper);
+        this.tcfDefinerService = Objects.requireNonNull(tcfDefinerService);
     }
 
     /**
      * Creates {@link AuctionContext} based on {@link RoutingContext}.
      */
     public Future<AuctionContext> fromRequest(RoutingContext routingContext, long startTime) {
-        final String body = routingContext.getBodyAsString();
+        final String body = routingContext.body().asString();
 
         final AuctionContext initialAuctionContext = ortb2RequestFactory.createAuctionContext(
                 Endpoint.openrtb2_amp, MetricName.amp);
@@ -213,7 +220,7 @@ public class AmpRequestFactory {
         return Future.succeededFuture(bidRequest);
     }
 
-    private static ConsentParam consentParamFromQueryStringParams(HttpRequestContext httpRequest) {
+    private ConsentParam consentParamFromQueryStringParams(HttpRequestContext httpRequest) {
         final ConsentType specifiedConsentType = ConsentType.from(httpRequest.getQueryParams().get(CONSENT_TYPE_PARAM));
         final CaseInsensitiveMultiMap queryParams = httpRequest.getQueryParams();
 
@@ -225,12 +232,12 @@ public class AmpRequestFactory {
                 : toConsentParam(gdprConsentParam, GDPR_CONSENT_PARAM, specifiedConsentType);
     }
 
-    private static ConsentParam toConsentParam(String consent, String fromParam, ConsentType specifiedConsentType) {
+    private ConsentParam toConsentParam(String consent, String fromParam, ConsentType specifiedConsentType) {
         return ConsentParam.of(
                 consent,
                 fromParam,
                 specifiedConsentType,
-                TcfDefinerService.isConsentStringValid(consent),
+                tcfDefinerService.isConsentStringValid(consent),
                 Ccpa.isValid(consent));
     }
 
@@ -255,10 +262,10 @@ public class AmpRequestFactory {
 
         return !StringUtils.isAllBlank(accountId, canonicalUrl, domain)
                 ? Site.builder()
-                .publisher(Publisher.builder().id(accountId).build())
-                .page(canonicalUrl)
-                .domain(domain)
-                .build()
+                  .publisher(Publisher.builder().id(accountId).build())
+                  .page(canonicalUrl)
+                  .domain(domain)
+                  .build()
                 : null;
     }
 
@@ -274,9 +281,9 @@ public class AmpRequestFactory {
 
         final ExtUser extUser = consentedProvidersSettings != null
                 ? ExtUser.builder()
-                .deprecatedConsentedProvidersSettings(consentedProvidersSettings)
-                .consentedProvidersSettings(consentedProvidersSettings)
-                .build()
+                  .deprecatedConsentedProvidersSettings(consentedProvidersSettings)
+                  .consentedProvidersSettings(consentedProvidersSettings)
+                  .build()
                 : null;
 
         return User.builder().consent(consent).ext(extUser).build();
@@ -297,12 +304,12 @@ public class AmpRequestFactory {
 
         return gdpr != null || usPrivacy != null || gppSid != null || gpp != null || gpc != null
                 ? Regs.builder()
-                .gdpr(gdpr)
-                .usPrivacy(usPrivacy)
-                .gppSid(gppSid)
-                .gpp(gpp)
-                .ext(gpc != null ? ExtRegs.of(null, null, gpc, null) : null)
-                .build()
+                  .gdpr(gdpr)
+                  .usPrivacy(usPrivacy)
+                  .gppSid(gppSid)
+                  .gpp(gpp)
+                  .ext(gpc != null ? ExtRegs.of(null, null, gpc, null) : null)
+                  .build()
                 : null;
     }
 
@@ -355,8 +362,8 @@ public class AmpRequestFactory {
         try {
             final List<Integer> gppSid = StringUtils.isNotBlank(gppSidParam)
                     ? Arrays.stream(gppSidParam.split(","))
-                    .map(Integer::valueOf)
-                    .toList()
+                      .map(Integer::valueOf)
+                      .toList()
                     : null;
 
             return GppSidExtraction.success(gppSid);
@@ -407,6 +414,7 @@ public class AmpRequestFactory {
         final HttpRequestContext httpRequest = auctionContext.getHttpRequest();
 
         return storedRequestProcessor.processAmpRequest(accountId, storedRequestId, receivedBidRequest)
+                .compose(bidRequest -> profilesProcessor.process(auctionContext, bidRequest))
                 .map(ortbVersionConversionManager::convertToAuctionSupportedVersion)
                 .map(bidRequest -> gppService.updateBidRequest(bidRequest, auctionContext))
                 .map(bidRequest -> validateStoredBidRequest(storedRequestId, bidRequest))
@@ -414,6 +422,10 @@ public class AmpRequestFactory {
                 .map(bidRequest -> overrideParameters(bidRequest, httpRequest, auctionContext.getPrebidErrors()))
                 .map(bidRequest -> paramsResolver.resolve(bidRequest, auctionContext, ENDPOINT, true))
                 .map(bidRequest -> ortb2RequestFactory.removeEmptyEids(bidRequest, auctionContext.getDebugWarnings()))
+                .compose(resolvedBidRequest -> ortb2RequestFactory.limitImpressions(
+                        account,
+                        resolvedBidRequest,
+                        auctionContext.getDebugWarnings()))
                 .compose(resolvedBidRequest -> ortb2RequestFactory.validateRequest(
                         account,
                         resolvedBidRequest,
@@ -731,7 +743,7 @@ public class AmpRequestFactory {
     }
 
     /**
-     * Creates updated with default values bidrequest.ext.targeting {@link ExtRequestTargeting} if at least one of it's
+     * Creates updated with default values bidrequest.ext.targeting {@link ExtRequestTargeting} if at least one of its
      * child properties is missed or entire targeting does not exist.
      */
     private ExtRequestTargeting createTargetingWithDefaults(ExtRequestPrebid prebid, Account account) {

@@ -21,7 +21,6 @@ import com.iab.openrtb.response.SeatBid;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.prebid.server.bidder.Bidder;
-import org.prebid.server.bidder.ix.model.request.IxDiag;
 import org.prebid.server.bidder.ix.model.response.IxBidResponse;
 import org.prebid.server.bidder.ix.model.response.IxExtBidResponse;
 import org.prebid.server.bidder.ix.model.response.NativeV11Wrapper;
@@ -65,6 +64,8 @@ public class IxBidder implements Bidder<BidRequest> {
     private static final TypeReference<ExtPrebid<?, ExtImpIx>> IX_EXT_TYPE_REFERENCE =
             new TypeReference<>() {
             };
+    private static final String PBSP_JAVA = "java";
+    private static final String PBS_VERSION_UNKNOWN = "unknown";
 
     private final String endpointUrl;
     private final PrebidVersionProvider prebidVersionProvider;
@@ -145,12 +146,13 @@ public class IxBidder implements Bidder<BidRequest> {
         final List<Format> formats = banner.getFormat();
         final Integer w = banner.getW();
         final Integer h = banner.getH();
+        final boolean hasNoFormats = CollectionUtils.isEmpty(formats);
 
-        if (CollectionUtils.isEmpty(formats) && h != null && w != null) {
+        if (hasNoFormats && h != null && w != null) {
             final List<Format> newFormats = Collections.singletonList(Format.builder().w(w).h(h).build());
             final Banner modifiedBanner = banner.toBuilder().format(newFormats).build();
             return UpdateResult.updated(modifiedBanner);
-        } else if (formats.size() == 1) {
+        } else if (!hasNoFormats && formats.size() == 1) {
             final Format format = formats.getFirst();
             final Banner modifiedBanner = banner.toBuilder().w(format.getW()).h(format.getH()).build();
             return UpdateResult.updated(modifiedBanner);
@@ -204,11 +206,11 @@ public class IxBidder implements Bidder<BidRequest> {
             modifiedExt = ExtRequest.empty();
         }
 
-        modifiedExt.addProperty("ixdiag", mapper.mapper().valueToTree(makeDiagData(extRequest, siteIds)));
+        modifiedExt.addProperty("ixdiag", makeDiagData(extRequest, siteIds));
         return modifiedExt;
     }
 
-    private IxDiag makeDiagData(ExtRequest extRequest, Set<String> siteIds) {
+    private ObjectNode makeDiagData(ExtRequest extRequest, Set<String> siteIds) {
         final String pbjsv = Optional.ofNullable(extRequest)
                 .map(ExtRequest::getPrebid)
                 .map(ExtRequestPrebid::getChannel)
@@ -221,7 +223,23 @@ public class IxBidder implements Bidder<BidRequest> {
                 ? siteIds.stream().sorted().collect(Collectors.joining(", "))
                 : null;
 
-        return IxDiag.of(pbsv, pbjsv, multipleSiteIds);
+        final ObjectNode ixdiag = Optional.ofNullable(extRequest)
+                .map(ext -> ext.getProperty("ixdiag"))
+                .filter(JsonNode::isObject)
+                .map(ObjectNode.class::cast)
+                .orElse(mapper.mapper().createObjectNode())
+                .put("pbsv", pbsv == null ? PBS_VERSION_UNKNOWN : pbsv)
+                .put("pbsp", PBSP_JAVA);
+
+        if (multipleSiteIds != null) {
+            ixdiag.put("multipleSiteIds", multipleSiteIds);
+        }
+
+        if (pbjsv != null) {
+            ixdiag.put("pbjsv", pbjsv);
+        }
+
+        return ixdiag;
     }
 
     @Override

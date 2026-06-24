@@ -1,6 +1,6 @@
 package org.prebid.server.privacy.gdpr;
 
-import org.prebid.server.auction.BidderAliases;
+import org.prebid.server.auction.aliases.BidderAliases;
 import org.prebid.server.bidder.BidderCatalog;
 
 public class VendorIdResolver {
@@ -20,6 +20,6 @@ public class VendorIdResolver {
     }
 
     public Integer resolve(String aliasOrBidder) {
-        return aliases != null ? aliases.resolveAliasVendorId(aliasOrBidder) : null;
+        return aliases.resolveAliasVendorId(aliasOrBidder);
     }
 }

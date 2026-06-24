@@ -31,6 +31,7 @@ public enum MetricName {
     request_time,
     prices,
     imps_requested,
+    imps_dropped,
     imps_banner,
     imps_video,
     imps_native,
@@ -75,6 +76,7 @@ public enum MetricName {
     err,
     networkerr,
     buyeruid_scrubbed,
+    seat,
 
     // bids validation
     warn,
@@ -102,6 +104,7 @@ public enum MetricName {
     specified,
     opt_out("opt-out"),
     invalid,
+    no_disclosed_vendors("no-disclosed-vendors"),
     in_geo("in-geo"),
     out_geo("out-geo"),
     unknown_geo("unknown-geo"),
@@ -119,6 +122,7 @@ public enum MetricName {
     // cache creative types
     json,
     xml,
+    text,
 
     // account.*.requests.
     rejected_by_invalid_account("rejected.invalid-account"),
@@ -154,7 +158,10 @@ public enum MetricName {
 
     // activity
     disallowed_count("disallowed.count"),
-    processed_rules_count("processedrules.count");
+    processed_rules_count("processedrules.count"),
+
+    // profiles
+    limit_exceeded;
 
     private final String name;
 

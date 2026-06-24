@@ -44,15 +44,15 @@ import java.util.stream.Collectors;
 public class TcfDefinerService {
 
     private static final Logger logger = LoggerFactory.getLogger(TcfDefinerService.class);
-    private static final ConditionalLogger AMP_CORRUPT_CONSENT_LOGGER =
+    private static final ConditionalLogger ampCorruptConsentLogger =
             new ConditionalLogger("amp_corrupt_consent", logger);
-    private static final ConditionalLogger APP_CORRUPT_CONSENT_LOGGER =
+    private static final ConditionalLogger appCorruptConsentLogger =
             new ConditionalLogger("app_corrupt_consent", logger);
-    private static final ConditionalLogger SITE_CORRUPT_CONSENT_LOGGER =
+    private static final ConditionalLogger siteCorruptConsentLogger =
             new ConditionalLogger("site_corrupt_consent", logger);
-    private static final ConditionalLogger DOOH_CORRUPT_CONSENT_LOGGER =
+    private static final ConditionalLogger doohCorruptConsentLogger =
             new ConditionalLogger("dooh_corrupt_consent", logger);
-    private static final ConditionalLogger UNDEFINED_CORRUPT_CONSENT_LOGGER =
+    private static final ConditionalLogger undefinedCorruptConsentLogger =
             new ConditionalLogger("undefined_corrupt_consent", logger);
 
     private static final String GDPR_ENABLED = "1";
@@ -60,6 +60,7 @@ public class TcfDefinerService {
     private final boolean gdprEnabled;
     private final String gdprDefaultValue;
     private final boolean consentStringMeansInScope;
+    private final DisclosedVendorsStrictness disclosedVendorsStrictness;
     private final Tcf2Service tcf2Service;
     private final Set<String> eeaCountries;
     private final GeoLocationServiceWrapper geoLocationServiceWrapper;
@@ -70,6 +71,7 @@ public class TcfDefinerService {
 
     public TcfDefinerService(GdprConfig gdprConfig,
                              Set<String> eeaCountries,
+                             DisclosedVendorsStrictness disclosedVendorsStrictness,
                              Tcf2Service tcf2Service,
                              GeoLocationServiceWrapper geoLocationServiceWrapper,
                              BidderCatalog bidderCatalog,
@@ -81,6 +83,7 @@ public class TcfDefinerService {
         this.gdprDefaultValue = gdprConfig != null ? gdprConfig.getDefaultValue() : null;
         this.consentStringMeansInScope = gdprConfig != null
                 && BooleanUtils.isTrue(gdprConfig.getConsentStringMeansInScope());
+        this.disclosedVendorsStrictness = Objects.requireNonNull(disclosedVendorsStrictness);
         this.tcf2Service = Objects.requireNonNull(tcf2Service);
         this.eeaCountries = Objects.requireNonNull(eeaCountries);
         this.geoLocationServiceWrapper = Objects.requireNonNull(geoLocationServiceWrapper);
@@ -345,6 +348,15 @@ public class TcfDefinerService {
             return TCStringParsingResult.of(TCStringEmpty.create(), warnings);
         }
 
+        if (!disclosedVendorsStrictness.isValid(tcString)) {
+            final String message = "Invalid TCF string: `disclosedVendors` list is empty.";
+            warnings.add(message);
+            logWarn(consentString, message, requestLogInfo);
+            metrics.updatePrivacyTcfNoDisclosedVendorsMetric();
+
+            return TCStringParsingResult.of(TCStringEmpty.create(), warnings);
+        }
+
         return toValidResult(consentString, TCStringParsingResult.of(tcString, warnings));
     }
 
@@ -369,7 +381,7 @@ public class TcfDefinerService {
 
             final String message = "Unknown tcfPolicyVersion %s, defaulting to gvlSpecificationVersion=3"
                     .formatted(tcfPolicyVersion);
-            UNDEFINED_CORRUPT_CONSENT_LOGGER.warn(message, samplingRate);
+            undefinedCorruptConsentLogger.warn(message, samplingRate);
             warnings.add(message);
         }
 
@@ -390,37 +402,39 @@ public class TcfDefinerService {
         if (requestLogInfo == null || requestLogInfo.getRequestType() == null) {
             final String exceptionMessage = "Parsing consent string:\"%s\" failed for undefined type with exception %s"
                     .formatted(consent, message);
-            UNDEFINED_CORRUPT_CONSENT_LOGGER.info(exceptionMessage, 100);
+            undefinedCorruptConsentLogger.info(exceptionMessage, 100);
             return;
         }
 
         switch (requestLogInfo.getRequestType()) {
-            case amp -> AMP_CORRUPT_CONSENT_LOGGER.info(
+            case amp -> ampCorruptConsentLogger.info(
                     logMessage(consent, MetricName.amp.toString(), requestLogInfo, message), 100);
-            case openrtb2app -> APP_CORRUPT_CONSENT_LOGGER.info(
+            case openrtb2app -> appCorruptConsentLogger.info(
                     logMessage(consent, MetricName.openrtb2app.toString(), requestLogInfo, message), 100);
-            case openrtb2dooh -> DOOH_CORRUPT_CONSENT_LOGGER.info(
+            case openrtb2dooh -> doohCorruptConsentLogger.info(
                     logMessage(consent, MetricName.openrtb2dooh.toString(), requestLogInfo, message), 100);
-            case openrtb2web -> SITE_CORRUPT_CONSENT_LOGGER.info(
+            case openrtb2web -> siteCorruptConsentLogger.info(
                     logMessage(consent, MetricName.openrtb2web.toString(), requestLogInfo, message), 100);
-            default -> UNDEFINED_CORRUPT_CONSENT_LOGGER.info(
+            default -> undefinedCorruptConsentLogger.info(
                     logMessage(consent, "video or sync or setuid", requestLogInfo, message), 100);
         }
     }
 
     private static String logMessage(String consent, String type, RequestLogInfo requestLogInfo, String message) {
-        return "Parsing consent string: \"%s\" failed for: %s type for account id: %s with ref: %s with exception: %s"
-                .formatted(consent, type, requestLogInfo.getAccountId(), requestLogInfo.getRefUrl(), message);
+        return """
+                Parsing consent string: "%s" failed for: \
+                %s type for account id: %s from source: \
+                %s with exception: %s"""
+                .formatted(consent, type, requestLogInfo.getAccountId(), requestLogInfo.getSource(), message);
     }
 
     private static boolean isConsentValid(TCString consent) {
         return consent != null && !(consent instanceof TCStringEmpty);
     }
 
-    public static boolean isConsentStringValid(String consentString) {
+    public boolean isConsentStringValid(String consentString) {
         try {
-            TCString.decode(consentString);
-            return true;
+            return disclosedVendorsStrictness.isValid(TCString.decode(consentString));
         } catch (RuntimeException e) {
             return false;
         }

@@ -69,7 +69,10 @@ public class MgidBidder implements Bidder<BidRequest> {
                 .imp(imps)
                 .build();
 
-        return Result.withValue(BidderUtil.defaultRequest(outgoingRequest, endpointUrl + accountId, mapper));
+        return Result.withValue(BidderUtil.defaultRequest(
+                outgoingRequest,
+                endpointUrl + HttpUtil.validatePathSegment(accountId),
+                mapper));
     }
 
     private ExtImpMgid parseImpExt(Imp imp) {
@@ -104,7 +107,7 @@ public class MgidBidder implements Bidder<BidRequest> {
     }
 
     private static String currencyValueOrNull(String value) {
-        return StringUtils.isNotBlank(value) && !value.equals("USD") ? value : null;
+        return StringUtils.isNotBlank(value) && !"USD".equals(value) ? value : null;
     }
 
     private static BigDecimal getBidFloor(ExtImpMgid impMgid) {
@@ -169,4 +172,3 @@ public class MgidBidder implements Bidder<BidRequest> {
         }
     }
 }
-

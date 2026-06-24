@@ -88,8 +88,10 @@ public class OwnAdxBidder implements Bidder<BidRequest> {
     private String makeUrl(ExtImpOwnAdx extImpOwnAdx) {
         final Optional<ExtImpOwnAdx> ownAdx = Optional.ofNullable(extImpOwnAdx);
         return endpointUrl
-                .replace(SEAT_ID_MACROS_ENDPOINT, ownAdx.map(ExtImpOwnAdx::getSeatId).orElse(StringUtils.EMPTY))
-                .replace(SSP_ID_MACROS_ENDPOINT, ownAdx.map(ExtImpOwnAdx::getSspId).orElse(StringUtils.EMPTY))
+                .replace(SEAT_ID_MACROS_ENDPOINT,
+                        HttpUtil.validatePathSegment(ownAdx.map(ExtImpOwnAdx::getSeatId).orElse(StringUtils.EMPTY)))
+                .replace(SSP_ID_MACROS_ENDPOINT,
+                        HttpUtil.validatePathSegment(ownAdx.map(ExtImpOwnAdx::getSspId).orElse(StringUtils.EMPTY)))
                 .replace(TOKEN_ID_MACROS_ENDPOINT, ownAdx.map(ExtImpOwnAdx::getTokenId).orElse(StringUtils.EMPTY));
     }
 
@@ -102,20 +104,17 @@ public class OwnAdxBidder implements Bidder<BidRequest> {
     public final Result<List<BidderBid>> makeBids(BidderCall<BidRequest> httpCall, BidRequest bidRequest) {
         try {
             final BidResponse bidResponse = mapper.decodeValue(httpCall.getResponse().getBody(), BidResponse.class);
-            return Result.withValues(extractBids(httpCall.getRequest().getPayload(), bidResponse));
+            return Result.withValues(extractBids(bidResponse));
         } catch (DecodeException | PreBidException e) {
             return Result.withError(BidderError.badServerResponse(e.getMessage()));
         }
     }
 
-    private static List<BidderBid> extractBids(BidRequest bidRequest, BidResponse bidResponse) {
+    private static List<BidderBid> extractBids(BidResponse bidResponse) {
         if (bidResponse == null || CollectionUtils.isEmpty(bidResponse.getSeatbid())) {
             return Collections.emptyList();
         }
-        return bidsFromResponse(bidRequest, bidResponse);
-    }
 
-    private static List<BidderBid> bidsFromResponse(BidRequest bidRequest, BidResponse bidResponse) {
         return bidResponse.getSeatbid().stream()
                 .filter(Objects::nonNull)
                 .map(SeatBid::getBid)
