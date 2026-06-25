@@ -7,10 +7,6 @@
     "sid": {
       "type": "string",
       "description": "Slot Id"
-    },
-    "name": {
-      "type": "string",
-      "description": "Partner name"
     }
   },
   "required": ["sid", "name"]

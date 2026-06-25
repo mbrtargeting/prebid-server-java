@@ -29,9 +29,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 public class MockStroeerBidder implements Bidder<BidRequest> {
@@ -55,7 +53,7 @@ public class MockStroeerBidder implements Bidder<BidRequest> {
 
     @Override
     public Result<List<HttpRequest<BidRequest>>> makeHttpRequests(BidRequest bidRequest) {
-        final Map<String, List<Imp>> modifiedImps = new HashMap<>();
+        final List<Imp> modifiedImps = new ArrayList<>();
         final List<BidderError> errors = new ArrayList<>();
 
         for (Imp imp : bidRequest.getImp()) {
@@ -74,22 +72,15 @@ public class MockStroeerBidder implements Bidder<BidRequest> {
                 continue;
             }
 
-            final List<Imp> imps = modifiedImps.computeIfAbsent(impExt.getPartnerName(), k -> new ArrayList<>());
-            imps.add(modifyImp(imp, impExt, price));
+            modifiedImps.add(modifyImp(imp, impExt, price));
         }
 
         if (modifiedImps.isEmpty()) {
             return Result.withErrors(errors);
         }
 
-        final List<HttpRequest<BidRequest>> httpRequests = modifiedImps.entrySet().stream()
-                .map(entry -> {
-                    final String url = endpointUrl + "/" + entry.getKey() + "/bid";
-                    return BidderUtil.defaultRequest(bidRequest.toBuilder().imp(entry.getValue()).build(), url, mapper);
-                })
-                .toList();
-
-        return Result.of(httpRequests, errors);
+        final BidRequest outgoingRequest = bidRequest.toBuilder().imp(modifiedImps).build();
+        return Result.of(Collections.singletonList(BidderUtil.defaultRequest(outgoingRequest, endpointUrl, mapper)), errors);
     }
 
     private static void validateImp(Imp imp) {
@@ -109,9 +100,6 @@ public class MockStroeerBidder implements Bidder<BidRequest> {
     private static void validateImpExt(ExtImpMockStroeer impExt) {
         if (StringUtils.isBlank(impExt.getSlotId())) {
             throw new PreBidException("Custom param slot id (sid) is empty");
-        }
-        if (StringUtils.isBlank(impExt.getPartnerName())) {
-            throw new PreBidException("Custom param partner name (name) is empty");
         }
     }
 

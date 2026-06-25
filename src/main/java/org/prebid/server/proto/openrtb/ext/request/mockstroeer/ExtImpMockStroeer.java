@@ -8,7 +8,4 @@ public class ExtImpMockStroeer {
 
     @JsonProperty("sid")
     String slotId;
-
-    @JsonProperty("name")
-    String partnerName;
 }
