@@ -1,6 +1,6 @@
 adapters:
   mockstroeer:
-    endpoint: http://mocks2.service.ssp.consul:3001/rtb
+    endpoint: http://mocks2.service.ssp.consul:3001/rtb/default/bid
     meta-info:
       maintainer-email: help@cz.stroeer-labs.com
       app-media-types:
