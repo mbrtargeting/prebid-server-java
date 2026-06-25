@@ -80,7 +80,8 @@ public class MockStroeerBidder implements Bidder<BidRequest> {
         }
 
         final BidRequest outgoingRequest = bidRequest.toBuilder().imp(modifiedImps).build();
-        return Result.of(Collections.singletonList(BidderUtil.defaultRequest(outgoingRequest, endpointUrl, mapper)), errors);
+        final HttpRequest<BidRequest> httpRequest = BidderUtil.defaultRequest(outgoingRequest, endpointUrl, mapper);
+        return Result.of(Collections.singletonList(httpRequest), errors);
     }
 
     private static void validateImp(Imp imp) {
