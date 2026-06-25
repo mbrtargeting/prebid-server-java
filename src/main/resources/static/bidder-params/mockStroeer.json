@@ -9,5 +9,5 @@
       "description": "Slot Id"
     }
   },
-  "required": ["sid", "name"]
+  "required": ["sid"]
 }
